@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// Configure axios base URL for backend API
+axios.defaults.baseURL = 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -132,6 +135,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Refresh user data from server (useful after LinkedIn connection)
+  const refreshUserData = async () => {
+    try {
+      const response = await axios.get('/api/auth/profile');
+      setCurrentUser(response.data.employee);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   const value = {
     currentUser,
     isAuthenticated,
@@ -140,7 +155,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
-    checkAuthStatus
+    checkAuthStatus,
+    refreshUserData
   };
 
   return (
