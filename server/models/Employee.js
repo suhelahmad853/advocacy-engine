@@ -56,6 +56,8 @@ const employeeSchema = new mongoose.Schema({
   socialNetworks: {
     linkedin: {
       profileUrl: String,
+      profileId: String,
+      accessToken: String,
       connections: Number,
       followers: Number,
       isConnected: { type: Boolean, default: false }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, Settings, Award, Share2, TrendingUp, Edit } from 'lucide-react';
+import LinkedInConnect from '../components/LinkedInConnect';
 
 const Profile = () => {
   return (
@@ -72,6 +73,9 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {/* LinkedIn Integration */}
+      <LinkedInConnect />
 
       {/* Social Networks */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

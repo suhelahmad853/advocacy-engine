@@ -14,6 +14,7 @@ const contentRoutes = require('./routes/content');
 const employeeRoutes = require('./routes/employees');
 const advocacyRoutes = require('./routes/advocacy');
 const analyticsRoutes = require('./routes/analytics');
+const linkedinRoutes = require('./routes/linkedin');
 
 // Middleware
 app.use(helmet());
@@ -38,6 +39,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/advocacy', advocacyRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/linkedin', linkedinRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

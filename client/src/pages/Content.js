@@ -1,43 +1,86 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Share2, Filter, Search, TrendingUp, Calendar, Users } from 'lucide-react';
+import LinkedInShare from '../components/LinkedInShare';
+import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 const Content = () => {
-  const contentItems = [
-    {
-      id: 1,
-      title: "New AI Product Launch",
-      category: "Product Launch",
-      type: "company-news",
-      description: "Exciting new AI features that will revolutionize our industry",
-      aiScore: 95,
-      engagement: 156,
-      reach: 2400,
-      tags: ["AI", "Innovation", "Product"]
-    },
-    {
-      id: 2,
-      title: "Senior Developer Position Open",
-      category: "Job Opening",
-      type: "job-opening",
-      description: "Join our growing engineering team",
-      aiScore: 88,
-      engagement: 89,
-      reach: 1200,
-      tags: ["Hiring", "Engineering", "Career"]
-    },
-    {
-      id: 3,
-      title: "Industry Conference Speaking",
-      category: "Thought Leadership",
-      type: "thought-leadership",
-      description: "Share your expertise at TechConf 2024",
-      aiScore: 82,
-      engagement: 234,
-      reach: 3100,
-      tags: ["Conference", "Speaking", "Leadership"]
-    }
-  ];
-
+  const { refreshUserData } = useAuth();
+  const [contentItems, setContentItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
+  
+  const fetchContent = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/content');
+      // The API returns { content: [...], pagination: {...} }
+      if (response.data && Array.isArray(response.data.content)) {
+        setContentItems(response.data.content);
+      } else {
+        console.warn('API returned unexpected data structure:', response.data);
+        setContentItems([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch content:', error);
+      // Fallback to mock data if API fails
+      setContentItems([
+        {
+          _id: 'mock-1',
+          title: "New AI Product Launch",
+          category: "tech",
+          type: "product-launch",
+          description: "Exciting new AI features that will revolutionize our industry",
+          aiScore: 95,
+          performance: { totalReach: 2400, totalEngagements: 156 },
+          tags: ["AI", "Innovation", "Product"],
+          sharingData: { isApproved: true },
+          status: "published"
+        },
+        {
+          _id: 'mock-2',
+          title: "Senior Developer Position Open",
+          category: "hr",
+          type: "job-opening",
+          description: "Join our growing engineering team",
+          aiScore: 88,
+          performance: { totalReach: 1200, totalEngagements: 89 },
+          tags: ["Hiring", "Engineering", "Career"],
+          sharingData: { isApproved: true },
+          status: "published"
+        },
+        {
+          _id: 'mock-3',
+          title: "Industry Conference Speaking",
+          category: "business",
+          type: "thought-leadership",
+          description: "Share your expertise at TechConf 2024",
+          aiScore: 82,
+          performance: { totalReach: 3100, totalEngagements: 234 },
+          tags: ["Conference", "Speaking", "Leadership"],
+          sharingData: { isApproved: true },
+          status: "published"
+        }
+      ]);
+    } finally {
+      setLoading(false);
+        }
+  }, []);
+  
+  // Load content and refresh user data only once when component mounts
+  useEffect(() => {
+    fetchContent();
+    // Refresh user data to get latest LinkedIn status
+    const refreshData = async () => {
+      try {
+        await refreshUserData();
+      } catch (error) {
+        console.error('Failed to refresh user data:', error);
+      }
+    };
+    refreshData();
+  }, []); // Empty dependency array - run only once
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -83,9 +126,19 @@ const Content = () => {
       </div>
 
       {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {contentItems.map((item) => (
-          <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading content...</p>
+        </div>
+      ) : !Array.isArray(contentItems) || contentItems.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-600">No content available</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {contentItems.map((item) => (
+          <div key={item._id || item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
@@ -98,7 +151,7 @@ const Content = () => {
                 <p className="text-sm text-gray-600 mb-4">{item.description}</p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">{item.aiScore}%</div>
+                <div className="text-2xl font-bold text-blue-600">{item.aiScore || 0}%</div>
                 <div className="text-xs text-gray-500">AI Match</div>
               </div>
             </div>
@@ -109,14 +162,14 @@ const Content = () => {
                   <Users className="w-4 h-4" />
                   <span>Reach</span>
                 </div>
-                <span className="font-medium">{item.reach.toLocaleString()}</span>
+                <span className="font-medium">{(item.performance?.totalReach || 0).toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-1 text-gray-500">
                   <TrendingUp className="w-4 h-4" />
                   <span>Engagement</span>
                 </div>
-                <span className="font-medium">{item.engagement}</span>
+                <span className="font-medium">{item.performance?.totalEngagements || 0}</span>
               </div>
             </div>
 
@@ -132,9 +185,18 @@ const Content = () => {
                 Share Now
               </button>
             </div>
+            
+            {/* LinkedIn Share Section */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <LinkedInShare 
+                content={item} 
+                onShareSuccess={(data) => console.log('Content shared successfully:', data)}
+              />
+            </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

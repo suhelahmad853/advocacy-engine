@@ -14,8 +14,8 @@ router.get('/', async (req, res) => {
     const content = await Content.find(query)
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('author', 'firstName lastName role');
+      .skip((parseInt(page) - 1) * parseInt(limit));
+    // Removed populate since content doesn't have authors assigned yet
     
     const total = await Content.countDocuments(query);
     
