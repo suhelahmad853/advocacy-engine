@@ -68,6 +68,7 @@ const advocacySchema = new mongoose.Schema({
     websiteTraffic: { type: Number, default: 0 }
   },
   
+  
   // Status & Lifecycle
   status: {
     type: String,
