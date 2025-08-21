@@ -46,7 +46,7 @@ router.post('/register', async (req, res) => {
       message: 'Employee registered successfully',
       token,
       employee: {
-        id: employee._id,
+        _id: employee._id,
         employeeId: employee.employeeId,
         firstName: employee.firstName,
         lastName: employee.lastName,
@@ -90,7 +90,7 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token,
       employee: {
-        id: employee._id,
+        _id: employee._id,
         employeeId: employee.employeeId,
         firstName: employee.firstName,
         lastName: employee.lastName,
@@ -123,7 +123,22 @@ router.get('/profile', async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
     
-    res.json({ employee });
+    res.json({ 
+      employee: {
+        _id: employee._id,
+        employeeId: employee.employeeId,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        email: employee.email,
+        role: employee.role,
+        department: employee.department,
+        expertise: employee.expertise,
+        skills: employee.skills,
+        contentPreferences: employee.contentPreferences,
+        socialNetworks: employee.socialNetworks,
+        advocacyProfile: employee.advocacyProfile
+      }
+    });
     
   } catch (error) {
     console.error('Profile error:', error);
@@ -158,7 +173,7 @@ router.put('/profile', async (req, res) => {
     res.json({ 
       message: 'Profile updated successfully',
       employee: {
-        id: employee._id,
+        _id: employee._id,
         expertise: employee.expertise,
         skills: employee.skills,
         contentPreferences: employee.contentPreferences,

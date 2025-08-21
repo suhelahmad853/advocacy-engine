@@ -16,16 +16,21 @@ const LinkedInShare = ({ content, onShareSuccess }) => {
     setShareStatus(null);
 
     try {
-      // Use the working LinkedIn sharing approach
-      const response = await axios.post('/api/linkedin/test-share', {
+      // Use the real LinkedIn sharing endpoint
+      const response = await axios.post('/api/linkedin/share', {
         contentId: content._id || content.id,
         customMessage: customMessage.trim()
+      }, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        }
       });
 
       setShareStatus({
         type: 'success',
         message: 'Content shared to LinkedIn successfully!',
-        postId: response.data.postId
+        postId: response.data.postId,
+        pointsEarned: response.data.pointsEarned
       });
 
       setCustomMessage('');
