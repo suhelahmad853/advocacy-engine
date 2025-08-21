@@ -58,9 +58,18 @@ const employeeSchema = new mongoose.Schema({
       profileUrl: String,
       profileId: String,
       accessToken: String,
+      refreshToken: String,        // NEW: For OAuth 2.0 token refresh
+      tokenExpiry: Date,          // NEW: Token expiration timestamp
       connections: Number,
       followers: Number,
-      isConnected: { type: Boolean, default: false }
+      isConnected: { type: Boolean, default: false },
+      lastSync: { type: Date, default: Date.now },  // NEW: Last profile sync
+      permissions: [String],      // NEW: Granted OAuth permissions
+      networkStats: {             // NEW: Network metrics
+        connections: { type: Number, default: 0 },
+        followers: { type: Number, default: 0 },
+        lastUpdated: { type: Date, default: Date.now }
+      }
     },
     twitter: {
       username: String,

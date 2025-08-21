@@ -1,80 +1,83 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/social-catalyst');
-
-// Import models
-const Content = require('./server/models/Content');
-const Employee = require('./server/models/Employee');
 const linkedinService = require('./server/services/linkedinService');
 
-async function testLinkedInSharing() {
+async function testLinkedInShare() {
   try {
-    console.log('🧪 Testing LinkedIn Sharing Directly\n');
+    console.log('🚀 Starting LinkedIn Share Test...\n');
     
-    // Get the first content item
-    const content = await Content.findOne({ 'sharingData.isApproved': true, status: 'published' });
-    if (!content) {
-      console.log('❌ No approved content found in database');
-      return;
-    }
+    await mongoose.connect('mongodb://localhost:27017/social-catalyst');
+    console.log('✅ Connected to MongoDB');
     
-    console.log('📝 Found content:', content.title);
-    console.log('Content ID:', content._id);
-    console.log('Status:', content.status);
-    console.log('Approved:', content.sharingData.isApproved);
+    const Employee = require('./server/models/Employee');
+    const employee = await Employee.findOne({'socialNetworks.linkedin.accessToken': {$exists: true}});
     
-    // Get the first employee (for testing)
-    const employee = await Employee.findOne();
     if (!employee) {
-      console.log('❌ No employees found in database');
+      console.log('❌ No employee with LinkedIn token found');
       return;
     }
     
-    console.log('\n👤 Found employee:', employee.firstName, employee.lastName);
-    console.log('LinkedIn connected:', employee.socialNetworks.linkedin.isConnected);
+    const linkedin = employee.socialNetworks.linkedin;
+    console.log(`\n👤 Testing with employee: ${employee.firstName} ${employee.lastName}`);
+    console.log(`   Profile ID: ${linkedin.profileId}`);
+    console.log(`   Has Token: ${!!linkedin.accessToken}`);
+    console.log(`   Token: ${linkedin.accessToken.substring(0, 20)}...`);
     
-    if (!employee.socialNetworks.linkedin.isConnected) {
-      console.log('❌ Employee LinkedIn not connected');
+    console.log('\n🧪 Test 1: Validating LinkedIn token...');
+    try {
+      const userInfo = await linkedinService.getUserInfoWithCurl(linkedin.accessToken);
+      console.log('✅ Token is valid! User info received');
+      console.log('   User ID:', userInfo.sub);
+      console.log('   Name:', userInfo.name);
+      console.log('   Email:', userInfo.email);
+      
+      if (userInfo.sub && userInfo.sub !== linkedin.profileId) {
+        console.log(`🔄 Updating profile ID from ${linkedin.profileId} to ${userInfo.sub}`);
+        employee.socialNetworks.linkedin.profileId = userInfo.sub;
+        await employee.save();
+        console.log('✅ Profile ID updated in database');
+      }
+      
+    } catch (error) {
+      console.log('❌ Token validation failed:', error.message);
+      console.log('🔄 Need to refresh token or re-authenticate');
       return;
     }
     
-    console.log('LinkedIn Profile ID:', employee.socialNetworks.linkedin.profileId);
-    console.log('LinkedIn Access Token:', employee.socialNetworks.linkedin.accessToken ? '✅ Present' : '❌ Missing');
+    console.log('\n🧪 Test 2: Sharing content to LinkedIn...');
     
-    // Test LinkedIn API call
-    console.log('\n🔗 Testing LinkedIn API call...');
+    const testContent = `🚀 Test post from Social Catalyst!\n\nThis is a test to verify LinkedIn integration is working properly.\n\n#SocialCatalyst #TestPost #LinkedInAPI`;
+    const authorUrn = `urn:li:member:${linkedin.profileId}`;
+    
+    console.log('📝 Test content:', testContent);
+    console.log('👤 Author URN:', authorUrn);
     
     try {
-      const userInfo = await linkedinService.getUserInfo(employee.socialNetworks.linkedin.accessToken);
-      console.log('✅ LinkedIn API test successful');
-      console.log('Profile ID from API:', userInfo.sub);
-      
-      // Test content sharing
-      console.log('\n📤 Testing content sharing...');
-      
-      const postContent = `Test post: ${content.title}\n\n${content.description}\n\n#SocialCatalyst #EmployeeAdvocacy #Innovation`;
-      
-      const shareResult = await linkedinService.shareContent(
-        employee.socialNetworks.linkedin.accessToken,
-        `urn:li:person:${employee.socialNetworks.linkedin.profileId}`,
-        postContent
+      const shareResult = await linkedinService.shareContentWithCurl(
+        linkedin.accessToken, 
+        authorUrn, 
+        testContent
       );
       
       console.log('✅ Content shared successfully!');
-      console.log('LinkedIn Post ID:', shareResult.id);
+      console.log('📊 Share result:', shareResult);
+      
+      if (shareResult.id) {
+        console.log('🔗 Post ID:', shareResult.id);
+        console.log('🌐 Post URL:', `https://www.linkedin.com/feed/update/${shareResult.id}/`);
+      }
       
     } catch (error) {
-      console.error('❌ LinkedIn API test failed:', error.message);
+      console.log('❌ Content sharing failed:', error.message);
+      console.log('🔍 Check the error details above');
     }
     
+    await mongoose.disconnect();
+    console.log('\n✅ Test completed and disconnected from MongoDB');
+    
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
-  } finally {
-    mongoose.connection.close();
+    console.error('❌ Test failed with error:', error.message);
+    process.exit(1);
   }
 }
 
-// Run the test
-testLinkedInSharing(); 
+testLinkedInShare();

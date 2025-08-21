@@ -2,18 +2,16 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-
-// Components
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-
-// Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Content from './pages/Content';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
+import LinkedInCallback from './pages/LinkedInCallback';
+import EmployeeManagement from './pages/Admin/EmployeeManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -56,6 +54,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
             
             {/* Protected Routes */}
             <Route path="/" element={
@@ -94,6 +93,14 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <Analytics />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/employees" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <EmployeeManagement />
                 </AppLayout>
               </ProtectedRoute>
             } />

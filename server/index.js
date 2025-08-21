@@ -33,6 +33,166 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/social-ca
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// LinkedIn OAuth callback route (must be at root level to match redirect URI)
+app.get('/auth/linkedin/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code || !state) {
+      console.log('❌ Missing OAuth parameters:', { code: !!code, state: !!state });
+      return res.status(400).json({ 
+        error: 'Missing required parameters: code and state' 
+      });
+    }
+
+    console.log('🔐 LinkedIn OAuth callback received at /auth/linkedin/callback');
+    console.log('📝 Code:', code.substring(0, 10) + '...');
+    console.log('🔒 State:', state.substring(0, 20) + '...');
+
+    // Decode state to get employeeId and timestamp
+    const stateData = Buffer.from(state, 'base64').toString();
+    const [employeeId, timestamp] = stateData.split('-');
+    
+    if (!employeeId) {
+      console.log('❌ Invalid state parameter - employee ID not found');
+      return res.status(400).json({ 
+        error: 'Invalid state parameter - employee ID not found' 
+      });
+    }
+
+    console.log('✅ Employee ID extracted from state:', employeeId);
+
+    // Import required modules for this route
+    const linkedinService = require('./services/linkedinService');
+    const Employee = require('./models/Employee');
+
+    // Exchange authorization code for access token
+    console.log('🔄 Exchanging authorization code for tokens...');
+    const tokenResponse = await linkedinService.exchangeCodeForTokens(code);
+    console.log('✅ Token exchange successful:', {
+      hasAccessToken: !!tokenResponse.access_token,
+      hasRefreshToken: !!tokenResponse.refresh_token,
+      expiresIn: tokenResponse.expires_in
+    });
+    
+    // Get the real profile ID using the access token
+    let profileId;
+    try {
+      console.log('🔍 Attempting to get user info from LinkedIn...');
+      const userInfo = await linkedinService.getUserInfo(tokenResponse.access_token);
+      console.log('📊 Full user info response:', userInfo);
+      
+      if (userInfo && userInfo.sub) {
+        profileId = userInfo.sub;
+        console.log('✅ Got real profile ID from LinkedIn API:', profileId);
+      } else {
+        console.log('⚠️ User info missing sub field:', userInfo);
+        throw new Error('LinkedIn API response missing profile ID (sub field)');
+      }
+    } catch (error) {
+      console.log('❌ Could not get user info from LinkedIn API:', error.message);
+      
+      // Handle specific LinkedIn API errors
+      if (error.message.includes('403') || error.message.includes('product permissions')) {
+        console.log('🚨 LinkedIn app requires product approval');
+        return res.status(403).json({
+          error: 'LinkedIn app requires "Sign In with LinkedIn using OpenID Connect" product approval. Please contact administrator.'
+        });
+      }
+      
+      if (error.message.includes('401') || error.message.includes('token revoked')) {
+        console.log('🚨 LinkedIn token revoked or invalid');
+        return res.status(401).json({
+          error: 'LinkedIn authentication failed. Please try again or contact support.'
+        });
+      }
+      
+      throw error; // Re-throw other errors
+    }
+    
+    // Find employee
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      console.error('❌ Employee not found for ID:', employeeId);
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    console.log('✅ Found employee:', employee.firstName, employee.lastName);
+
+    // Check if employee already has a valid LinkedIn connection
+    if (employee.socialNetworks.linkedin.isConnected && 
+        employee.socialNetworks.linkedin.accessToken && 
+        employee.socialNetworks.linkedin.profileId && 
+        !employee.socialNetworks.linkedin.profileId.startsWith('temp_') &&
+        !employee.socialNetworks.linkedin.profileId.startsWith('linkedin_')) {
+      console.log('⚠️ Employee already has a valid LinkedIn connection');
+      return res.json({ 
+        success: true, 
+        message: 'LinkedIn already connected',
+        profile: { profileUrl: employee.socialNetworks.linkedin.profileUrl },
+        employee: {
+          id: employee._id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          linkedinProfile: employee.socialNetworks.linkedin.profileUrl
+        }
+      });
+    }
+
+    // Update employee LinkedIn connection with OAuth 2.0 data
+    const linkedinData = {
+      profileUrl: `https://linkedin.com/in/${profileId}`,
+      profileId: profileId,
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      tokenExpiry: new Date(Date.now() + (tokenResponse.expires_in * 1000)),
+      isConnected: true,
+      isPendingApproval: false,
+      lastSync: new Date(),
+      permissions: ['openid', 'profile', 'w_member_social', 'email'],
+      networkStats: {
+        connections: 0,
+        followers: 0,
+        lastUpdated: new Date()
+      }
+    };
+    
+    console.log('💾 Saving LinkedIn data to employee:', {
+      employeeId: employee._id,
+      profileId: linkedinData.profileId,
+      hasAccessToken: !!linkedinData.accessToken,
+      profileUrl: linkedinData.profileUrl
+    });
+    
+    employee.socialNetworks.linkedin = linkedinData;
+    await employee.save();
+    
+    console.log('✅ LinkedIn connection saved successfully');
+    
+    // Return success response
+    res.json({ 
+      success: true, 
+      message: 'LinkedIn connected successfully',
+      profile: { profileUrl: linkedinData.profileUrl },
+      employee: {
+        id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        linkedinProfile: linkedinData.profileUrl
+      }
+    });
+    
+  } catch (error) {
+    console.error('💥 LinkedIn OAuth callback error:', error);
+    
+    // Return error response
+    res.status(500).json({ 
+      error: 'LinkedIn authentication failed', 
+      message: error.message 
+    });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/content', contentRoutes);
